@@ -5,6 +5,13 @@ import urllib.parse as urlparse
 from qbittorrent import Client
 import subprocess
 
+## TODO 
+## 1. Implement list function
+## 2. Implement a funtion that reads all the searches from a file instead of pasting a list in as an argument
+## 3. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
+## 4. Implement functionality to create new directories for the files you download that are from the same show
+
+
 def get_search_url(search_str):
     search = search_str.replace('"', '')
     search = re.sub(r"[^a-zA-Z0-9-&:!]+", '+', search)
@@ -77,7 +84,7 @@ def start_download(magnet, name, path):
         qb = Client('http://127.0.0.1:8080/')
         qb.login()
         qb.download_from_link(magnet, savepath=path)
-        print(name + " started downloading. The files will be saved to " + path)
+        print(name + " started downloading. The files will be saved to " + path + "\n")
     except Exception as e:
         print(e)
 
@@ -87,22 +94,35 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--search', help='The search you want to make on nyaa.si')
     parser.add_argument('-d', '--destination', help='The absolute path to the directory where you want the save the files.')
+    parser.add_argument('-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
     args = parser.parse_args()
     if args.search == None:
-        parser.print_help()
-        sys.exit()
+        if args.list == None:
+            parser.print_help()
+            sys.exit()
     if args.search == "test":
-        print("Seach: " + str(args.search))
+        print("Search: " + str(args.search))
         print("Destination: " + str(args.destination))
+        print("Search List:" + str(args.list))
         sys.exit()
     dest = args.destination
     if dest != None:
         if dest[-1:] != "/" or dest[-1:] != "\\":
             dest = dest + "/"
-    magnet_links_dict = get_magnet_links(get_html(get_search_url(args.search)))
-    res = check_res(magnet_links_dict)
-    if res != False:
-        name_key = res[0]
-        magnet_link = magnet_links_dict.get(name_key)
-        start_download(magnet_link, name_key, dest)
+    if args.list != None:
+         search_list = [str(item) for item in args.list.split(',')]
+         for search in search_list:
+             magnet_links_dict = get_magnet_links(get_html(get_search_url(search)))
+             res = check_res(magnet_links_dict)
+             if res != False:
+                name_key = res[0]
+                magnet_link = magnet_links_dict.get(name_key)
+                start_download(magnet_link, name_key, dest)
+    else:
+        magnet_links_dict = get_magnet_links(get_html(get_search_url(args.search)))
+        res = check_res(magnet_links_dict)
+        if res != False:
+            name_key = res[0]
+            magnet_link = magnet_links_dict.get(name_key)
+            start_download(magnet_link, name_key, dest)
 
