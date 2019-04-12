@@ -6,10 +6,8 @@ from qbittorrent import Client
 import subprocess
 
 ## TODO 
-## 1. Implement list function
-## 2. Implement a funtion that reads all the searches from a file instead of pasting a list in as an argument
-## 3. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
-## 4. Implement functionality to create new directories for the files you download that are from the same show
+## 1. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
+## 2. Implement functionality to create new directories for the files you download that are from the same show
 
 
 def get_search_url(search_str):
@@ -76,7 +74,16 @@ def open_qb():
     subprocess.Popen('C:\\Program Files\\qBittorrent\\qbittorrent.exe')
     time.sleep(1.5)
 
-
+def open_and_read_file(path):
+    searches = []
+    with open(path) as f:
+        for line in f:
+            searches.append(line)
+    if len(searches) > 0:
+        return searches
+    else: 
+        print('The specified file has no text in it.')
+        sys.exit()
 
 def start_download(magnet, name, path):
     open_qb()
@@ -95,11 +102,13 @@ if __name__ == '__main__':
         '-s', '--search', help='The search you want to make on nyaa.si')
     parser.add_argument('-d', '--destination', help='The absolute path to the directory where you want the save the files.')
     parser.add_argument('-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
+    parser.add_argument('-f', '--file', help='The absoulute path to a text file containing all the search queries you want. Please make a new line for every search in your file.')
     args = parser.parse_args()
     if args.search == None:
         if args.list == None:
-            parser.print_help()
-            sys.exit()
+            if args.file == None:
+                parser.print_help()
+                sys.exit()
     if args.search == "test":
         print("Search: " + str(args.search))
         print("Destination: " + str(args.destination))
@@ -109,12 +118,24 @@ if __name__ == '__main__':
     if dest != None:
         if dest[-1:] != "/" or dest[-1:] != "\\":
             dest = dest + "/"
+    if args.list != None and args.file != None:
+        print('Please only use one of either the list or file argument, not both.')
+        sys.exit()
     if args.list != None:
          search_list = [str(item) for item in args.list.split(',')]
          for search in search_list:
              magnet_links_dict = get_magnet_links(get_html(get_search_url(search)))
              res = check_res(magnet_links_dict)
              if res != False:
+                name_key = res[0]
+                magnet_link = magnet_links_dict.get(name_key)
+                start_download(magnet_link, name_key, dest)
+    elif args.file != None:
+        search_list = open_and_read_file(args.file)
+        for search in search_list:
+            magnet_links_dict = get_magnet_links(get_html(get_search_url(search)))
+            res = check_res(magnet_links_dict)
+            if res != False:
                 name_key = res[0]
                 magnet_link = magnet_links_dict.get(name_key)
                 start_download(magnet_link, name_key, dest)
