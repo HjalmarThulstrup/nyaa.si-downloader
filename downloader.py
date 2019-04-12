@@ -1,11 +1,13 @@
-import re, sys, argparse
+import re, sys, argparse, time
 import bs4
 import urllib.request as urllib
 import urllib.parse as urlparse
+from qbittorrent import Client
+import subprocess
 
 def get_search_url(search_str):
     search = search_str.replace('"', '')
-    search = re.sub(r"[^a-zA-Z0-9-]+", '+', search)
+    search = re.sub(r"[^a-zA-Z0-9-&:!]+", '+', search)
     return "https://nyaa.si/?f=0&c=1_2&q=" + search + "&s=seeders&o=desc"
 
 def get_html(url):
@@ -27,50 +29,80 @@ def get_html(url):
         sys.exit()
 
 def get_magnet_links(html):
-    soup = bs4.BeautifulSoup(html, 'html.parser')
-    tbody = soup.find('tbody')
-    results = tbody.find_all('tr')
-    magnet_name_dict = {}
-    for r in results:
-        tds = r.find_all('td')
-        name_td = tds[1]
-        name_as = name_td.find_all('a')
-        name = name_as[len(name_as)-1].text
-        magnet_td = tds[2]
-        magnet_as = magnet_td.find_all('a')
-        magnet = magnet_as[1]['href']
-        magnet_name_dict.update({name:magnet})
-
-    return magnet_name_dict
+    try:
+        soup = bs4.BeautifulSoup(html, 'html.parser')
+        tbody = soup.find('tbody')
+        results = tbody.find_all('tr')
+        magnet_name_dict = {}
+        for r in results:
+            tds = r.find_all('td')
+            name_td = tds[1]
+            name_as = name_td.find_all('a')
+            name = name_as[len(name_as)-1].text
+            magnet_td = tds[2]
+            magnet_as = magnet_td.find_all('a')
+            magnet = magnet_as[1]['href']
+            magnet_name_dict.update({name:magnet})
+        return magnet_name_dict
+    except:
+        print('No search results found.')
+        sys.exit()
 
 
 def check_res(magnet_dict):
     res = ['1080p', '720p']
-    is1080 = False
     is720 = False
-    name_1080 = ''
     name_720 = ''
     for name_key in magnet_dict.items():
         name_str = str(name_key)
         if name_str.find(res[0]) != -1:
-            is1080 = True
-            name_1080 = name_key
+            return name_key
         elif name_str.find(res[1]) != -1:
             is720 = True
             name_720 = name_key
-    if is1080:
-        return name_1080
-    elif is720:
+    if is720:
         return name_720
     else:
-        print("No files with 720p+ resolution")
         return False
+
+def open_qb():
+    subprocess.Popen('C:\\Program Files\\qBittorrent\\qbittorrent.exe')
+    time.sleep(1.5)
+
+
+
+def start_download(magnet, name, path):
+    open_qb()
+    try:
+        qb = Client('http://127.0.0.1:8080/')
+        qb.login()
+        qb.download_from_link(magnet, savepath=path)
+        print(name + " started downloading. The files will be saved to " + path)
+    except Exception as e:
+        print(e)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='A script that gets magnet links from a nyaa.si search with english subtitles and starts downloading the torrent with highest amount of seeders.')
+        description='A script that gets magnet links from a nyaa.si search with english subtitles and starts downloading the torrent with the highest res and amount of seeders.')
     parser.add_argument(
         '-s', '--search', help='The search you want to make on nyaa.si')
+    parser.add_argument('-d', '--destination', help='The absolute path to the directory where you want the save the files.')
     args = parser.parse_args()
-    print(check_res(get_magnet_links(get_html(get_search_url(args.search)))))
+    if args.search == None:
+        parser.print_help()
+        sys.exit()
+    if args.search == "test":
+        print("Seach: " + str(args.search))
+        print("Destination: " + str(args.destination))
+        sys.exit()
+    dest = args.destination
+    if dest != None:
+        if dest[-1:] != "/" or dest[-1:] != "\\":
+            dest = dest + "/"
+    magnet_links_dict = get_magnet_links(get_html(get_search_url(args.search)))
+    res = check_res(magnet_links_dict)
+    if res != False:
+        name_key = res[0]
+        magnet_link = magnet_links_dict.get(name_key)
+        start_download(magnet_link, name_key, dest)
 
