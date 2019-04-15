@@ -6,9 +6,12 @@ from qbittorrent import Client
 import subprocess
 
 ## TODO 
-## 1. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
-## 2. Implement functionality to create new directories for the files you download that are from the same show
-
+## 1. Implement functionality to make the script take an argument of a list of dir paths so you can save each show in its respective folder
+## 2. Make the script take an argument of episode numbers, either a single number or a number in a range (like 5-8, both included).
+####  Make it loop thru a list of searches where only the episode number is changed
+## 3. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
+## 4. Implement functionality to create new directories for the files you download that are from the same show
+## 5. Make script turn on VPN automatically and possibly turn it off afterwards
 
 def get_search_url(search_str):
     search = search_str.replace('"', '')
