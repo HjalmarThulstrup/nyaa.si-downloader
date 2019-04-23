@@ -1,22 +1,28 @@
-import re, sys, argparse, time
+import re
+import sys
+import argparse
+import time
 import bs4
 import urllib.request as urllib
 import urllib.parse as urlparse
 from qbittorrent import Client
 import subprocess
 
-## TODO 
-## 1. Implement functionality to make the script take an argument of a list of dir paths so you can save each show in its respective folder
-## 2. Make the script take an argument of episode numbers, either a single number or a number in a range (like 5-8, both included).
-####  Make it loop thru a list of searches where only the episode number is changed
-## 3. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
-## 4. Implement functionality to create new directories for the files you download that are from the same show
-## 5. Make script turn on VPN automatically and possibly turn it off afterwards
+# TODO
+# 1. Implement functionality to make the script take an argument of a list of dir paths so you can save each show in its respective folder
+# 2. Make the script take an argument of episode numbers, either a single number or a number in a range (like 5-8, both included).
+# Make it loop thru a list of searches where only the episode number is changed
+# 3. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
+# 4. Implement functionality to create new directories for the files you download that are from the same show
+# 5. Make script turn on VPN automatically and possibly turn it off afterwards
+
 
 def get_search_url(search_str):
     search = search_str.replace('"', '')
-    search = re.sub(r"[^a-zA-Z0-9-&:!]+", '+', search)
+    search = search.replace('&', '%26')
+    search = re.sub(r"[^a-zA-Z0-9-:!%]+", '+', search)
     return "https://nyaa.si/?f=0&c=1_2&q=" + search + "&s=seeders&o=desc"
+
 
 def get_html(url):
     try:
@@ -36,6 +42,7 @@ def get_html(url):
         parser.print_help()
         sys.exit()
 
+
 def get_magnet_links(html):
     try:
         soup = bs4.BeautifulSoup(html, 'html.parser')
@@ -50,7 +57,7 @@ def get_magnet_links(html):
             magnet_td = tds[2]
             magnet_as = magnet_td.find_all('a')
             magnet = magnet_as[1]['href']
-            magnet_name_dict.update({name:magnet})
+            magnet_name_dict.update({name: magnet})
         return magnet_name_dict
     except:
         print('No search results found.')
@@ -73,6 +80,7 @@ def check_res(magnet_dict):
     else:
         return False
 
+
 def get_episode_nums(ep_str):
     nums = []
     if ep_str != None:
@@ -88,9 +96,18 @@ def get_episode_nums(ep_str):
     else:
         return ep_str
 
+
+def open_vpn():
+    subprocess.Popen("E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn")
+    #subprocess.call(
+    #    'E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn')
+    time.sleep(17)
+
+
 def open_qb():
     subprocess.Popen('C:\\Program Files\\qBittorrent\\qbittorrent.exe')
     time.sleep(1.5)
+
 
 def open_and_read_file(path):
     searches = []
@@ -99,9 +116,10 @@ def open_and_read_file(path):
             searches.append(line)
     if len(searches) > 0:
         return searches
-    else: 
+    else:
         print('The specified file has no text in it.')
         sys.exit()
+
 
 def start_download(magnet, name, path):
     open_qb()
@@ -113,14 +131,18 @@ def start_download(magnet, name, path):
     except Exception as e:
         print(e)
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='A script that gets magnet links from a nyaa.si search with english subtitles and starts downloading the torrent with the highest res and amount of seeders.')
     parser.add_argument(
         '-s', '--search', help='The search you want to make on nyaa.si')
-    parser.add_argument('-d', '--destination', help='The absolute path to the directory where you want the save the files.')
-    parser.add_argument('-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
-    parser.add_argument('-f', '--file', help='The absoulute path to a text file containing all the search queries you want. Please make a new line for every search in your file.')
+    parser.add_argument('-d', '--destination',
+                        help='The absolute path to the directory where you want the save the files.', type=str)
+    parser.add_argument(
+        '-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
+    parser.add_argument(
+        '-f', '--file', help='The absoulute path to a text file containing all the search queries you want. Please make a new line for every search in your file.')
     parser.add_argument('-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"', type=str)
     args = parser.parse_args()
     if args.search == None:
@@ -142,44 +164,49 @@ if __name__ == '__main__':
         print('Please only use one of either the list or file argument, not both.')
         sys.exit()
     if args.list != None:
-         search_list = [str(item) for item in args.list.split(',')]
-         for search in search_list:
-             magnet_links_dict = get_magnet_links(get_html(get_search_url(search)))
-             res = check_res(magnet_links_dict)
-             if res != False:
+        open_vpn()
+        search_list = [str(item) for item in args.list.split(',')]
+        for search in search_list:
+            magnet_links_dict = get_magnet_links(
+                get_html(get_search_url(search)))
+            res = check_res(magnet_links_dict)
+            if res != False:
                 name_key = res[0]
                 magnet_link = magnet_links_dict.get(name_key)
                 start_download(magnet_link, name_key, dest)
     elif args.file != None:
+        open_vpn()
         search_list = open_and_read_file(args.file)
         for search in search_list:
-            magnet_links_dict = get_magnet_links(get_html(get_search_url(search)))
+            magnet_links_dict = get_magnet_links(
+                get_html(get_search_url(search)))
             res = check_res(magnet_links_dict)
             if res != False:
                 name_key = res[0]
                 magnet_link = magnet_links_dict.get(name_key)
                 start_download(magnet_link, name_key, dest)
     else:
+        open_vpn()
         if eps != None:
-            print(eps)
             for e in eps:
                 num = e
                 if 1 <= num <= 9:
                     num = "0" + str(num)
                 s = args.search + " " + str(num)
-                print(s)
-                magnet_links_dict = get_magnet_links(get_html(get_search_url(s)))
+                magnet_links_dict = get_magnet_links(
+                    get_html(get_search_url(s)))
                 res = check_res(magnet_links_dict)
                 if res != False:
                     name_key = res[0]
                     magnet_link = magnet_links_dict.get(name_key)
-                    print(name_key + ' - ' + magnet_link)
-                    #start_download(magnet_link, name_key, dest)
+                    #print(name_key + " - " + magnet_link)
+                    start_download(magnet_link, name_key, dest)
         else:
-            magnet_links_dict = get_magnet_links(get_html(get_search_url(args.search)))
+            magnet_links_dict = get_magnet_links(
+                get_html(get_search_url(args.search)))
             res = check_res(magnet_links_dict)
         if res != False:
             name_key = res[0]
             magnet_link = magnet_links_dict.get(name_key)
-            #start_download(magnet_link, name_key, dest)
-
+            #print(name_key + " - " + magnet_link)
+            start_download(magnet_link, name_key, dest)
