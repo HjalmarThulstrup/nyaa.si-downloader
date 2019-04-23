@@ -73,6 +73,21 @@ def check_res(magnet_dict):
     else:
         return False
 
+def get_episode_nums(ep_str):
+    nums = []
+    if ep_str != None:
+        if ep_str.find('-') != -1:
+            nums = ep_str.split('-')
+        if len(nums) == 2:
+            nums = list(range(int(nums[0]), int(nums[1])+1))
+            return nums
+        elif len(nums) > 2:
+            return nums
+        else:
+            return ep_str
+    else:
+        return ep_str
+
 def open_qb():
     subprocess.Popen('C:\\Program Files\\qBittorrent\\qbittorrent.exe')
     time.sleep(1.5)
@@ -106,6 +121,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--destination', help='The absolute path to the directory where you want the save the files.')
     parser.add_argument('-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
     parser.add_argument('-f', '--file', help='The absoulute path to a text file containing all the search queries you want. Please make a new line for every search in your file.')
+    parser.add_argument('-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"', type=str)
     args = parser.parse_args()
     if args.search == None:
         if args.list == None:
@@ -118,6 +134,7 @@ if __name__ == '__main__':
         print("Search List:" + str(args.list))
         sys.exit()
     dest = args.destination
+    eps = get_episode_nums(args.episodes)
     if dest != None:
         if dest[-1:] != "/" or dest[-1:] != "\\":
             dest = dest + "/"
@@ -143,10 +160,26 @@ if __name__ == '__main__':
                 magnet_link = magnet_links_dict.get(name_key)
                 start_download(magnet_link, name_key, dest)
     else:
-        magnet_links_dict = get_magnet_links(get_html(get_search_url(args.search)))
-        res = check_res(magnet_links_dict)
+        if eps != None:
+            print(eps)
+            for e in eps:
+                num = e
+                if 1 <= num <= 9:
+                    num = "0" + str(num)
+                s = args.search + " " + str(num)
+                print(s)
+                magnet_links_dict = get_magnet_links(get_html(get_search_url(s)))
+                res = check_res(magnet_links_dict)
+                if res != False:
+                    name_key = res[0]
+                    magnet_link = magnet_links_dict.get(name_key)
+                    print(name_key + ' - ' + magnet_link)
+                    #start_download(magnet_link, name_key, dest)
+        else:
+            magnet_links_dict = get_magnet_links(get_html(get_search_url(args.search)))
+            res = check_res(magnet_links_dict)
         if res != False:
             name_key = res[0]
             magnet_link = magnet_links_dict.get(name_key)
-            start_download(magnet_link, name_key, dest)
+            #start_download(magnet_link, name_key, dest)
 
