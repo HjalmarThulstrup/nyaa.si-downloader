@@ -7,6 +7,7 @@ import urllib.request as urllib
 import urllib.parse as urlparse
 from qbittorrent import Client
 import subprocess
+import psutil 
 
 # TODO
 # 1. Implement functionality to make the script take an argument of a list of dir paths so you can save each show in its respective folder
@@ -97,16 +98,21 @@ def get_episode_nums(ep_str):
         return ep_str
 
 
+def process_check(name):
+    return name in (p.name() for p in psutil.process_iter())
+
 def open_vpn():
-    subprocess.Popen("E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn")
+    if not process_check("openvpn-gui.exe"):
+        subprocess.Popen("E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn")
+        time.sleep(17)
     #subprocess.call(
     #    'E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn')
-    time.sleep(17)
 
 
 def open_qb():
-    subprocess.Popen('C:\\Program Files\\qBittorrent\\qbittorrent.exe')
-    time.sleep(1.5)
+    if not process_check("qbittorrent.exe"):
+        subprocess.Popen('C:\\Program Files\\qBittorrent\\qbittorrent.exe')
+        time.sleep(1.5)
 
 
 def open_and_read_file(path):
@@ -143,7 +149,7 @@ if __name__ == '__main__':
         '-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
     parser.add_argument(
         '-f', '--file', help='The absoulute path to a text file containing all the search queries you want. Please make a new line for every search in your file.')
-    parser.add_argument('-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"', type=str)
+    parser.add_argument('-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"')
     args = parser.parse_args()
     if args.search == None:
         if args.list == None:
@@ -189,7 +195,7 @@ if __name__ == '__main__':
         open_vpn()
         if eps != None:
             for e in eps:
-                num = e
+                num = int(e)
                 if 1 <= num <= 9:
                     num = "0" + str(num)
                 s = args.search + " " + str(num)
