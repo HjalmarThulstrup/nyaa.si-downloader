@@ -3,11 +3,13 @@ import sys
 import argparse
 import time
 import bs4
+import os
 import urllib.request as urllib
 import urllib.parse as urlparse
 from qbittorrent import Client
 import subprocess
-import psutil 
+import psutil
+from pynput.keyboard import Key, Controller
 
 # TODO
 # 1. Implement functionality to make the script take an argument of a list of dir paths so you can save each show in its respective folder
@@ -15,7 +17,6 @@ import psutil
 # Make it loop thru a list of searches where only the episode number is changed
 # 3. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
 # 4. Implement functionality to create new directories for the files you download that are from the same show
-# 5. Make script turn on VPN automatically and possibly turn it off afterwards
 
 
 def get_search_url(search_str):
@@ -101,11 +102,24 @@ def get_episode_nums(ep_str):
 def process_check(name):
     return name in (p.name() for p in psutil.process_iter())
 
+
+def onetonine(num):
+    if 1 <= num <= 9:
+        return "0" + str(num)
+    else:
+        return num
+
+
 def open_vpn():
     if not process_check("openvpn-gui.exe"):
-        subprocess.Popen("E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn")
-        time.sleep(17)
-    #subprocess.call(
+        keyboard = Controller()
+        subprocess.Popen(
+            "E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn")
+        time.sleep(1)
+        keyboard.press(Key.enter)
+        keyboard.release(Key.enter)
+        time.sleep(7)
+    # subprocess.call(
     #    'E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn')
 
 
@@ -113,6 +127,30 @@ def open_qb():
     if not process_check("qbittorrent.exe"):
         subprocess.Popen('C:\\Program Files\\qBittorrent\\qbittorrent.exe')
         time.sleep(1.5)
+
+
+def check_qb():
+    if process_check("qbittorrent.exe"):
+        qb = Client('http://127.0.0.1:8080/')
+        while len(qb.torrents()) > 0:
+            print("Downloading...")
+            time.sleep(5)
+        else:
+            return True
+    else:
+        return False
+
+
+def kill_process():
+    if check_qb():
+        os.system("taskkill /F /IM qbittorrent.exe")
+        time.sleep(1)
+    if process_check("openvpn.exe"):
+        os.system("taskkill /F /IM openvpn.exe")
+        time.sleep(1)
+    if process_check("openvpn-gui.exe"):
+        os.system("taskkill /F /IM openvpn-gui.exe")
+    # sys.exit()
 
 
 def open_and_read_file(path):
@@ -137,6 +175,19 @@ def start_download(magnet, name, path):
     except Exception as e:
         print(e)
 
+def dl(search, dest):
+    magnet_links_dict = get_magnet_links(get_html(get_search_url(search)))
+    res = check_res(magnet_links_dict)
+    if res != False:
+        name_key = res[0]
+        magnet_link = magnet_links_dict.get(name_key)
+        start_download(magnet_link, name_key, dest)
+
+def ep_dl(eps, search, dest):
+    for e in eps:
+        num = onetonine(int(e))
+        s = search + " " + str(num)
+        dl(s, dest)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -150,6 +201,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f', '--file', help='The absoulute path to a text file containing all the search queries you want. Please make a new line for every search in your file.')
     parser.add_argument('-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"')
+    parser.add_argument(
+        '-k', '--kill', help='Kills the VPN and qBitTorrent processes when the downloads are finished.', action='store_true')
     args = parser.parse_args()
     if args.search == None:
         if args.list == None:
@@ -160,7 +213,18 @@ if __name__ == '__main__':
         print("Search: " + str(args.search))
         print("Destination: " + str(args.destination))
         print("Search List:" + str(args.list))
-        sys.exit()
+        # TEST
+        # open_vpn()
+        # open_qb()
+        # magnet_dict_test = get_magnet_links(get_html(get_search_url("one punch man")))
+        # res = check_res(magnet_dict_test)
+        # if res != False:
+        #     name_key = res[0]
+        #     magnet_link = magnet_dict_test.get(name_key)
+        #     start_download(magnet_link, name_key, "E:\\VIDEO\\animu\\Test")
+        # #start_download(magnet_dict_test[0].key, magnet_dict_test[0].value, "E:\\VIDEO\\animu\\Test")
+        # kill_process()
+
     dest = args.destination
     eps = get_episode_nums(args.episodes)
     if dest != None:
@@ -173,46 +237,29 @@ if __name__ == '__main__':
         open_vpn()
         search_list = [str(item) for item in args.list.split(',')]
         for search in search_list:
-            magnet_links_dict = get_magnet_links(
-                get_html(get_search_url(search)))
-            res = check_res(magnet_links_dict)
-            if res != False:
-                name_key = res[0]
-                magnet_link = magnet_links_dict.get(name_key)
-                start_download(magnet_link, name_key, dest)
+            if eps != None:
+                ep_dl(eps, search, dest)
+            else:
+                dl(search, dest)
+        if args.kill:
+            kill_process()
     elif args.file != None:
         open_vpn()
         search_list = open_and_read_file(args.file)
         for search in search_list:
-            magnet_links_dict = get_magnet_links(
-                get_html(get_search_url(search)))
-            res = check_res(magnet_links_dict)
-            if res != False:
-                name_key = res[0]
-                magnet_link = magnet_links_dict.get(name_key)
-                start_download(magnet_link, name_key, dest)
+            if eps != None:
+                ep_dl(eps, search, dest)
+            else:
+                dl(search, dest)
+        if args.kill:
+            kill_process()
     else:
         open_vpn()
         if eps != None:
-            for e in eps:
-                num = int(e)
-                if 1 <= num <= 9:
-                    num = "0" + str(num)
-                s = args.search + " " + str(num)
-                magnet_links_dict = get_magnet_links(
-                    get_html(get_search_url(s)))
-                res = check_res(magnet_links_dict)
-                if res != False:
-                    name_key = res[0]
-                    magnet_link = magnet_links_dict.get(name_key)
-                    #print(name_key + " - " + magnet_link)
-                    start_download(magnet_link, name_key, dest)
+            ep_dl(eps, search, dest)
+            if args.kill:
+                kill_process()
         else:
-            magnet_links_dict = get_magnet_links(
-                get_html(get_search_url(args.search)))
-            res = check_res(magnet_links_dict)
-        if res != False:
-            name_key = res[0]
-            magnet_link = magnet_links_dict.get(name_key)
-            #print(name_key + " - " + magnet_link)
-            start_download(magnet_link, name_key, dest)
+            dl(args.search, dest)
+            if args.kill:
+                kill_process()
