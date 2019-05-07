@@ -45,7 +45,7 @@ def get_html(url):
         sys.exit()
 
 
-def get_magnet_links(html):
+def get_magnet_links(html, search):
     try:
         soup = bs4.BeautifulSoup(html, 'html.parser')
         tbody = soup.find('tbody')
@@ -62,8 +62,9 @@ def get_magnet_links(html):
             magnet_name_dict.update({name: magnet})
         return magnet_name_dict
     except:
-        print('No search results found.')
-        sys.exit()
+        p = 'No search results of "' + search + '" found.'
+        print(p.replace('\n', ''))
+        #sys.exit()
 
 
 def check_res(magnet_dict):
@@ -111,7 +112,7 @@ def onetonine(num):
 
 
 def open_vpn():
-    if not process_check("openvpn-gui.exe"):
+    if not process_check("openvpn.exe"):
         keyboard = Controller()
         subprocess.Popen(
             "E:\\Programs\\OpenVPN\\bin\\openvpn-gui.exe --connect nl-256b.ovpn")
@@ -176,12 +177,13 @@ def start_download(magnet, name, path):
         print(e)
 
 def dl(search, dest):
-    magnet_links_dict = get_magnet_links(get_html(get_search_url(search)))
-    res = check_res(magnet_links_dict)
-    if res != False:
-        name_key = res[0]
-        magnet_link = magnet_links_dict.get(name_key)
-        start_download(magnet_link, name_key, dest)
+    magnet_links_dict = get_magnet_links(get_html(get_search_url(search)), search)
+    if magnet_links_dict != None:
+        res = check_res(magnet_links_dict)
+        if res != False:
+            name_key = res[0]
+            magnet_link = magnet_links_dict.get(name_key)
+            start_download(magnet_link, name_key, dest)
 
 def ep_dl(eps, search, dest):
     for e in eps:
@@ -194,8 +196,8 @@ if __name__ == '__main__':
         description='A script that gets magnet links from a nyaa.si search with english subtitles and starts downloading the torrent with the highest res and amount of seeders.')
     parser.add_argument(
         '-s', '--search', help='The search you want to make on nyaa.si')
-    parser.add_argument('-d', '--destination',
-                        help='The absolute path to the directory where you want the save the files.', type=str)
+    parser.add_argument(
+        '-d', '--destination', help='The absolute path to the directory where you want the save the files.', type=str)
     parser.add_argument(
         '-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
     parser.add_argument(
@@ -214,7 +216,8 @@ if __name__ == '__main__':
         print("Destination: " + str(args.destination))
         print("Search List:" + str(args.list))
         # TEST
-        # open_vpn()
+        open_vpn()
+        sys.exit()
         # open_qb()
         # magnet_dict_test = get_magnet_links(get_html(get_search_url("one punch man")))
         # res = check_res(magnet_dict_test)
@@ -256,7 +259,7 @@ if __name__ == '__main__':
     else:
         open_vpn()
         if eps != None:
-            ep_dl(eps, search, dest)
+            ep_dl(eps, args.search, dest)
             if args.kill:
                 kill_process()
         else:
