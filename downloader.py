@@ -13,17 +13,17 @@ from pynput.keyboard import Key, Controller
 
 # TODO
 # 1. Implement functionality to make the script take an argument of a list of dir paths so you can save each show in its respective folder
-# 2. Make the script take an argument of episode numbers, either a single number or a number in a range (like 5-8, both included).
-# Make it loop thru a list of searches where only the episode number is changed
-# 3. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
-# 4. Implement functionality to create new directories for the files you download that are from the same show
+# 2. Implement functionality to download whole seasons at a time (Torrents where it's the whole season in 1 download or download every ep seperatly)
+# 3. Implement functionality to create new directories for the files you download that are from the same show
+# 4. Perhaps implement a function that returns the top n search results and make the user choose which one he wants to download.
 
 
 def get_search_url(search_str):
     search = search_str.replace('"', '')
     search = search.replace('&', '%26')
     search = re.sub(r"[^a-zA-Z0-9-:!%]+", '+', search)
-    return "https://nyaa.si/?f=0&c=1_2&q=" + search + "&s=seeders&o=desc"
+    return "https://nyaa.si/?f=0&c=1_2&q=" + search + "&s=id&o=desc"
+    
 
 
 def get_html(url):
@@ -67,22 +67,36 @@ def get_magnet_links(html, search):
         #sys.exit()
 
 
-def check_res(magnet_dict):
+def check_res(magnet_dict, search):
     res = ['1080p', '720p']
-    is720 = False
-    name_720 = ''
+    is1080 = ''
+    is720 = ''
+    ## Try 1080p
     for name_key in magnet_dict.items():
-        name_str = str(name_key)
-        if name_str.find(res[0]) != -1:
-            return name_key
-        elif name_str.find(res[1]) != -1:
-            is720 = True
-            name_720 = name_key
-    if is720:
-        return name_720
-    else:
-        return False
+        is1080 = check_name(name_key, search, res[0])
+        if is1080 != False:
+            return is1080
+    ## Try 720p
+    for name_key in magnet_dict.items():
+        is720 = check_name(name_key, search, res[1])
+        if is720 != False:
+            return is720
+    return False
 
+
+def check_name(name, search, res):
+    name_str = str(name[0])
+    name_str = re.sub(r'[^a-zA-Z0-9-!&]', ' ', name_str).lower()
+    search_arr = search.lower().split(" ")
+    search_arr.append(res)
+    for w in search_arr:
+        if not contains_word(name_str, w):
+            #print(w + " not in " + name_str)
+            return False
+    return name
+
+def contains_word(s, w):
+    return (' ' + w + ' ') in (' ' + s + ' ')
 
 def get_episode_nums(ep_str):
     nums = []
@@ -177,13 +191,17 @@ def start_download(magnet, name, path):
         print(e)
 
 def dl(search, dest):
+    print("Searching for " + search)
     magnet_links_dict = get_magnet_links(get_html(get_search_url(search)), search)
     if magnet_links_dict != None:
-        res = check_res(magnet_links_dict)
+        res = check_res(magnet_links_dict, search)
+        #print(res)
         if res != False:
-            name_key = res[0]
-            magnet_link = magnet_links_dict.get(name_key)
-            start_download(magnet_link, name_key, dest)
+            # name_key = res[0]
+            # magnet_link = magnet_links_dict.get(name_key)
+            start_download(res[1], res[0], dest)
+        else:
+            print("No results")
 
 def ep_dl(eps, search, dest):
     for e in eps:
@@ -205,27 +223,33 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"')
     parser.add_argument(
         '-k', '--kill', help='Kills the VPN and qBitTorrent processes when the downloads are finished.', action='store_true')
+    parser.add_argument(
+        '-t', '--test', help='Test', action='store_true')
     args = parser.parse_args()
     if args.search == None:
         if args.list == None:
             if args.file == None:
-                parser.print_help()
-                sys.exit()
-    if args.search == "test":
+                if args.test == None:
+                    parser.print_help()
+                    sys.exit()
+    if args.test:
         print("Search: " + str(args.search))
         print("Destination: " + str(args.destination))
         print("Search List:" + str(args.list))
         # TEST
-        open_vpn()
+        #open_vpn()
+        #sys.exit()
+        #open_qb()
+        search = "Shoumetsu Toshi 10"
+        magnet_dict_test = get_magnet_links(get_html(get_search_url(search)), search)
+        res = check_res(magnet_dict_test, search)
+        print(res)
         sys.exit()
-        # open_qb()
-        # magnet_dict_test = get_magnet_links(get_html(get_search_url("one punch man")))
-        # res = check_res(magnet_dict_test)
         # if res != False:
         #     name_key = res[0]
         #     magnet_link = magnet_dict_test.get(name_key)
         #     start_download(magnet_link, name_key, "E:\\VIDEO\\animu\\Test")
-        # #start_download(magnet_dict_test[0].key, magnet_dict_test[0].value, "E:\\VIDEO\\animu\\Test")
+        # start_download(magnet_dict_test[0].key, magnet_dict_test[0].value, "E:\\VIDEO\\animu\\Test")
         # kill_process()
 
     dest = args.destination
@@ -253,7 +277,7 @@ if __name__ == '__main__':
             if eps != None:
                 ep_dl(eps, search, dest)
             else:
-                dl(search, dest)
+                dl(search.replace("\n", ""), dest)
         if args.kill:
             kill_process()
     else:
