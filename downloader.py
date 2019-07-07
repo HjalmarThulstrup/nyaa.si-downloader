@@ -22,7 +22,7 @@ def get_search_url(search_str):
     search = search_str.replace('"', '')
     search = search.replace('&', '%26')
     search = re.sub(r"[^a-zA-Z0-9-:!%]+", '+', search)
-    return "https://nyaa.si/?f=0&c=1_2&q=" + search + "&s=id&o=desc"
+    return "https://nyaa.si/?f=0&c=1_2&q=" + search + "&s=seeders&o=desc"
     
 
 
@@ -190,24 +190,26 @@ def start_download(magnet, name, path):
     except Exception as e:
         print(e)
 
-def dl(search, dest):
+def dl(search, dest, vpnbool):
     print("Searching for " + search)
     magnet_links_dict = get_magnet_links(get_html(get_search_url(search)), search)
     if magnet_links_dict != None:
         res = check_res(magnet_links_dict, search)
         #print(res)
         if res != False:
+            if vpnbool:
+                open_vpn()
             # name_key = res[0]
             # magnet_link = magnet_links_dict.get(name_key)
             start_download(res[1], res[0], dest)
         else:
             print("No results")
 
-def ep_dl(eps, search, dest):
+def ep_dl(eps, search, dest, vpnbool):
     for e in eps:
         num = onetonine(int(e))
         s = search + " " + str(num)
-        dl(s, dest)
+        dl(s, dest, vpnbool)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -220,11 +222,13 @@ if __name__ == '__main__':
         '-l', '--list', help='The list of searches you want to make on nyaa.si', type=str)
     parser.add_argument(
         '-f', '--file', help='The absoulute path to a text file containing all the search queries you want. Please make a new line for every search in your file.')
-    parser.add_argument('-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"')
+    parser.add_argument(
+        '-e', '--episodes', help='The episode(s) you want to download. Write a single number if you want to download one episode, but you can also download multiple episodes if you write "01-12" for example. You can also download multiple single episodes, simply devide the episode numbers by dashes, i.e. "1-3-5-6"')
     parser.add_argument(
         '-k', '--kill', help='Kills the VPN and qBitTorrent processes when the downloads are finished.', action='store_true')
     parser.add_argument(
         '-t', '--test', help='Test', action='store_true')
+    parser.add_argument('-v', '--vpn', help='Opens VPN', action='store_true')
     args = parser.parse_args()
     if args.search == None:
         if args.list == None:
@@ -233,18 +237,36 @@ if __name__ == '__main__':
                     parser.print_help()
                     sys.exit()
     if args.test:
-        print("Search: " + str(args.search))
-        print("Destination: " + str(args.destination))
-        print("Search List:" + str(args.list))
+        # print("Search: " + str(args.search))
+        # print("Destination: " + str(args.destination))
+        # print("Search List:" + str(args.list))
         # TEST
         #open_vpn()
         #sys.exit()
         #open_qb()
-        search = "Shoumetsu Toshi 10"
-        magnet_dict_test = get_magnet_links(get_html(get_search_url(search)), search)
-        res = check_res(magnet_dict_test, search)
-        print(res)
+
+
+        search = "citrus"
+        eps = get_episode_nums("1-12")
+        for e in eps:
+            num = onetonine(int(e))
+            s = search + " " + str(num)
+            magnet_dict_test = get_magnet_links(get_html(get_search_url(s)), s)
+            res = check_res(magnet_dict_test, s)
+            print(res[0])
         sys.exit()
+
+        # allmodules = [sys.modules[name] for name in set(sys.modules)&set(globals())]
+        # for module in allmodules:
+        #     try:
+        #         print(module.__file__)
+        #     except Exception as e:
+        #         print(e)
+        # sys.exit()
+
+        # print(urllib.__file__)
+        # sys.exit()
+
         # if res != False:
         #     name_key = res[0]
         #     magnet_link = magnet_dict_test.get(name_key)
@@ -254,6 +276,7 @@ if __name__ == '__main__':
 
     dest = args.destination
     eps = get_episode_nums(args.episodes)
+    vpnbool = args.vpn
     if dest != None:
         if dest[-1:] != "/" or dest[-1:] != "\\":
             dest = dest + "/"
@@ -261,32 +284,32 @@ if __name__ == '__main__':
         print('Please only use one of either the list or file argument, not both.')
         sys.exit()
     if args.list != None:
-        open_vpn()
+        #open_vpn()
         search_list = [str(item) for item in args.list.split(',')]
         for search in search_list:
             if eps != None:
-                ep_dl(eps, search, dest)
+                ep_dl(eps, search, dest, vpnbool)
             else:
-                dl(search, dest)
+                dl(search, dest, vpnbool)
         if args.kill:
             kill_process()
     elif args.file != None:
-        open_vpn()
+        #open_vpn()
         search_list = open_and_read_file(args.file)
         for search in search_list:
             if eps != None:
-                ep_dl(eps, search, dest)
+                ep_dl(eps, search, dest, vpnbool)
             else:
-                dl(search.replace("\n", ""), dest)
+                dl(search.replace("\n", ""), dest, vpnbool)
         if args.kill:
             kill_process()
     else:
-        open_vpn()
+        #open_vpn()
         if eps != None:
-            ep_dl(eps, args.search, dest)
+            ep_dl(eps, args.search, dest, vpnbool)
             if args.kill:
                 kill_process()
         else:
-            dl(args.search, dest)
+            dl(args.search, dest, vpnbool)
             if args.kill:
                 kill_process()
